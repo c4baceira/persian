@@ -13,7 +13,6 @@
     <div ng-app="danicab" ng-controller="MainController" ng-init="loadAccounts()">
         <h3>Persian . Manage Accounts</h3>
         <div>
-            <h2>Accounts:</h2>
             <div class="row">
                 <div class="col-4">
                     <div class="list-group" id="list-tab" role="tablist">
@@ -32,6 +31,7 @@
             </div>
             <button class="btn btn-danger" ng-click="deleteAccount()">Delete</button>
         </div>
+        <hr />
         <div>
             <form>
                 <div class="form-group">
@@ -51,6 +51,17 @@
                 </div>
                 <button class="btn btn-success" ng-click="newAccount()">Create New</button>
             </form>
+        </div>
+        <hr />
+        <div>
+            <h2>Categories:</h2>
+            <ul class="list-group">
+                <li class="list-group-item">Cras justo odio</li>
+                <li class="list-group-item">Dapibus ac facilisis in</li>
+                <li class="list-group-item">Morbi leo risus</li>
+                <li class="list-group-item">Porta ac consectetur ac</li>
+                <li class="list-group-item">Vestibulum at eros</li>
+            </ul>
         </div>
     </div>
     <script>
