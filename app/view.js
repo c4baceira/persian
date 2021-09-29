@@ -18,16 +18,21 @@ app.controller("MainController", ["$scope", ($scope) => {
 
     $scope.openLink = '#'
 
-    $scope.loadAccounts = () => {
-        selectAll("accounts", function (err, res) {
-            $scope.accountsList = res.results
+    $scope.loadInitialData = () => {
+        /*
+        Load accounts
+        res = {count: number, items:{accounts: [{id: 1, name, balance, desc}]}}
+        accountsList = accounts: [{id: 1, name, balance, desc}, {id: 1, name, balance, desc},...]}
+        */
+        selectAllFromTable("accounts", function (err, res) {
+            $scope.accountsList = res.items
             $scope.$apply()
         })
     }
 
-    $scope.selectAccount = (e) => {
+    $scope.selectAccountEvent = (e) => {
         e.preventDefault()
-        let account = $scope.accountsList[e.target.id]
+        let account = $scope.accountsList.accounts[e.target.id]
         localStorage.setObject("account", account)
         $scope.openLink = "./account.html"
     }
@@ -38,13 +43,25 @@ app.controller("MainController", ["$scope", ($scope) => {
     
     ************************************/
 
-    let categorylist = null
+    //Placeholder variables
 
-    $scope.inputData = null
+    $scope.classifier = loadClassifier()
 
-    $scope.insertLog = null
+    $scope.selectedMonth = "Month"
 
-    $scope.getYears = () => {
+    $scope.selectedYear = "Year"
+
+    $scope.selectedAccount = localStorage.getObject("account")
+
+    let tableCategoriesGroup = null
+
+    let categoriesOfCreditCardGroup = null
+
+    $scope.stagedData = null
+
+    $scope.insertionLog = null
+
+    $scope.getAccountYears = () => {
         getYears(function (res) {
             $scope.years = res
             $scope.$apply()
@@ -54,79 +71,76 @@ app.controller("MainController", ["$scope", ($scope) => {
     $scope.months = getMonths()
     $scope.months.unshift("All")
 
-    $scope.selectedMonth = "Month"
-
-    $scope.selectedYear = "Year"
-
-    $scope.accountInUse = localStorage.getObject("account")
-
     $scope.loadCats = () => {
-        selectAll("categories", function (err, res) {
-            categorylist = res.results
-            $scope.groupList = [...new Set(res.results.map(x => x.group))]
-            $scope.categoryList = [...new Set(categorylist.map(x => x.name))]
-            $scope.groupCat = buildGroupCat(categorylist, "group")
-            delete $scope.groupCat["Income"]
-            $scope.annualTotal = annualTotalCategoryGroupMonth($scope.groupList, $scope.categoryList)
-            //console.log($scope.annualTotal)
+        selectAllFromTable("categories", function (err, res) {
+            tableCategoriesGroup = changeCategoryAttributeNameToCategory(res.items.categories)
+            $scope.groupList = createArrayFromObjectAttribute(tableCategoriesGroup, "group")
+            $scope.categoryList = createArrayFromObjectAttribute(tableCategoriesGroup, "category")
+            $scope.categoriesGroupedbyGroup = objectArrayGroupByAttribute(tableCategoriesGroup, "group")
+            delete $scope.categoriesGroupedbyGroup["Income"]
+            categoriesOfCreditCardGroup = filterObjectListByAttributeEqualsKey(tableCategoriesGroup, "group", "Credit Card")
+            annualTotalsCategoryGroupMonth($scope.groupList, $scope.categoryList, function (res) {
+                $scope.annualTotals = res
+                $scope.$apply()
+            })
             $scope.$apply()
         })
     }
 
-    $scope.getData = () => {
-        $scope.insertLog = resetLog()
-        $scope.inputData = null
-        parseData($scope.data, function (err, res) {
+    $scope.stageTextAreaData = (e) => {
+        $scope.insertionLog = resetLog()
+        $scope.stagedData = null
+        parseTextAreaData(e === 'cc' ? $scope.textAreaDataCc : $scope.textAreaData, e, function (err, res) {
             if (err) {
-                $scope.insertLog.errors.push({ "message": "Data missing" })
+                $scope.insertionLog.errors.push({ "message": err })
             } else {
-                $scope.inputData = res
-                $scope.inputDataGroups = Array($scope.inputData.length).fill("Group")
-                $scope.filteredCat = Array($scope.inputData.length)
-
-                $scope.data = null
+                $scope.stagedData = res
+                $scope.stagedDataGroups = Array($scope.stagedData.length).fill("Group")
+                $scope.stagedDataCategories = Array($scope.stagedData.length)
+                $scope.textAreaData = null
+                $scope.textAreaDataCc = null
             }
         })
+
     }
 
-    $scope.filterCat = (e) => {
+    $scope.filterCategoryBySelectedGroup = (e) => {
         e.preventDefault()
         let coord = (e.target.id).split("-group-")
         let groupNumber = coord[1]
-        $scope.inputData[coord[0]].cat = "Category"
-        $scope.inputDataGroups[coord[0]] = $scope.groupList[groupNumber]
-        let result = categorylist.filter(item => {
-            return item.group == $scope.groupList[groupNumber]
-        })
-        $scope.filteredCat[coord[0]] = result
+        $scope.stagedData[coord[0]].cat = "Category"
+        $scope.stagedDataGroups[coord[0]] = $scope.groupList[groupNumber]
+        let categoriesOfGroup = filterObjectListByAttributeEqualsKey(tableCategoriesGroup, "group", $scope.groupList[groupNumber])
+        $scope.stagedDataCategories[coord[0]] = categoriesOfGroup
     }
 
-    $scope.setCat = (e) => {
+    $scope.setStagedDataCategory = (e) => {
         e.preventDefault()
         let coord = (e.target.id).split("-cat-")
-        $scope.inputData[coord[0]].cat = $scope.filteredCat[coord[0]][coord[1]].name
+        $scope.stagedData[coord[0]].cat = $scope.stagedDataCategories[coord[0]][coord[1]].category
     }
 
     $scope.insertData = () => {
-        if ($scope.inputData == null) {
-            $scope.insertLog = resetLog()
-            $scope.insertLog.errors.push({ "message": "Data missing" })
-        } else if (checkCat($scope.inputData)) {
-            $scope.inputData = idGen($scope.inputData, $scope.accountInUse.name)
-            $scope.insertLog = resetLog()
-            let incomeCats = categorylist.filter(item => {
-                return item.group == "Income"
-            })
-            insertTrans($scope.inputData, $scope.accountInUse.id, incomeCats, function (log, total) {
-                updateBalance($scope.accountInUse, total)
-                $scope.insertLog = log
-                $scope.accountInUse.balance = addFloat($scope.accountInUse.balance, total)
+        if ($scope.stagedData == null) {
+            $scope.insertionLog = resetLog()
+            $scope.insertionLog.errors.push({ "message": "Data missing" })
+        } else if (stagedDataCategoryIsFilled($scope.stagedData)) {
+            $scope.stagedData = addUniqueTransactionId($scope.stagedData, $scope.selectedAccount.name)
+            $scope.insertionLog = resetLog()
+            insertTransaction($scope.stagedData, $scope.selectedAccount.id, categoriesOfCreditCardGroup, function (log, total) {
+                updateAccountBalance($scope.selectedAccount, total)
+                $scope.insertionLog = log
+                $scope.selectedAccount.balance = addFloat($scope.selectedAccount.balance, total)
+                getYears(function (res) {
+                    $scope.years = res
+                    $scope.$apply()
+                })
                 $scope.$apply()
             })
-            $scope.inputData = null
+            $scope.stagedData = null
         } else {
-            $scope.insertLog = resetLog()
-            $scope.insertLog.errors.push({ "message": "Category missing" })
+            $scope.insertionLog = resetLog()
+            $scope.insertionLog.errors.push({ "message": "Category missing" })
         }
     }
 
@@ -138,35 +152,27 @@ app.controller("MainController", ["$scope", ($scope) => {
     $scope.selectYear = (e) => {
         e.preventDefault()
         $scope.selectedYear = $scope.years[e.target.id].year
-        let incomeCats = categorylist.filter(item => {
-            return item.group == "Income"
-        })
-        /* getMonthData($scope.accountInUse.id, $scope.selectedYear, incomeCats, function (err, data) {
+        queryCategoryGroupMonthValue($scope.selectedAccount.id, $scope.selectedYear, function (err, data) {
             $scope.monthDebit = data.debit
             $scope.monthTotalDebit = calcTotal($scope.monthDebit)
             $scope.monthCredit = data.credit
             $scope.monthTotalCredit = calcTotal($scope.monthCredit)
-            $scope.yearTotalDebit = $scope.monthTotalDebit.reduce(function (a, b) { return addFloat(a, b) })
-            $scope.$apply()
-        }) */
-        //////////////////////////////////////////////////////////////
+            $scope.sumCreditDebitMonth = $scope.monthTotalCredit.map((item, i) =>  addFloat(item, $scope.monthTotalDebit[i]))
 
-        queryCategoryGroupMonthValue($scope.accountInUse.id, $scope.selectedYear, incomeCats, function (err, data) {
-            $scope.monthDebit = data.debit
-            $scope.monthTotalDebit = calcTotal($scope.monthDebit)
-            $scope.monthCredit = data.credit
-            $scope.monthTotalCredit = calcTotal($scope.monthCredit)
             $scope.yearTotalDebit = $scope.monthTotalDebit.reduce(function (a, b) { return addFloat(a, b) })
             $scope.$apply()
         })
+    }
 
-
-        //////////////////////////////////////////////////////////////
+    $scope.calcSumCreditDebitMonth = (month) => {
+        return $scope.monthTotalDebit[month]+$scope.monthTotalCredit[month]
     }
 
     $scope.totalMonth = (month, key, keyattr) => {
         if ($scope.monthDebit && $scope.monthDebit.length) {
-            let items = $scope.monthDebit[month].data.filter((element) => element[keyattr] == key)
+            let debitItems = $scope.monthDebit[month].data.filter((element) => element[keyattr] == key)
+            let creditItems = $scope.monthCredit[month].data.filter((element) => element[keyattr] == key)
+            let items = debitItems.concat(creditItems)
             let total = 0
 
             if (items && items.length) {
@@ -174,9 +180,7 @@ app.controller("MainController", ["$scope", ($scope) => {
                     total = addFloat(total, items[item].value)
                 }
                 month = $scope.months[month + 1]
-                //  console.log( $scope.month +" "+ month)
-                $scope.annualTotal[month][keyattr][key] = total
-                console.log($scope.annualTotal)
+                $scope.annualTotals[$scope.selectedYear].months[month][keyattr][key] = total
                 return total
             } else {
                 return "-"
@@ -187,21 +191,16 @@ app.controller("MainController", ["$scope", ($scope) => {
     }
 
     $scope.totalYear = (keyattr, key) => {
-        if ($scope.annualTotal) {
+        if ($scope.annualTotals && $scope.selectedYear != "Year") {
             let sum = 0
-            for (item in $scope.annualTotal) {
-                sum = addFloat(sum, $scope.annualTotal[item][keyattr][key])
+            for (item in $scope.annualTotals[$scope.selectedYear].months) {
+                sum = addFloat(sum, $scope.annualTotals[$scope.selectedYear].months[item][keyattr][key])
             }
             return sum
         } else {
             return "-"
         }
     }
-
-
-
-
-
 
     /***********************************
         
@@ -215,6 +214,7 @@ app.controller("MainController", ["$scope", ($scope) => {
 
     $scope.deleteAccount = () => {
         console.log("del account" + localStorage.getObject("account").name)
+        console.log(catTest($scope.classifier, "degiro"))
     }
 }])
 

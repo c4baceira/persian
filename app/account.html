@@ -10,7 +10,7 @@
 </head>
 
 <body cz-shortcut-listen="true">
-    <div ng-app="danicab" ng-controller="MainController" ng-init="loadCats(); getYears()">
+    <div ng-app="danicab" ng-controller="MainController" ng-init="loadCats(); getAccountYears()">
         <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0">
             <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="#">Persian</a>
             <input class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">
@@ -20,8 +20,8 @@
                 </li>
             </ul>
         </nav>
-        <h3>Account - {{ accountInUse.name }}</h3>
-        <h2>{{ accountInUse.balance }}€</h2>
+        <h3>Account - {{ selectedAccount.name }}</h3>
+        <h2>{{ selectedAccount.balance }}€</h2>
         <nav>
             <div class="nav nav-tabs" id="nav-tab" role="tablist">
                 <a class="nav-item nav-link active" id="nav-home-tab" data-toggle="tab" href="#nav-staging" role="tab"
@@ -40,10 +40,17 @@
             <div class="tab-pane fade show active" id="nav-staging" role="tabpanel" aria-labelledby="nav-staging-tab">
                 <div class="form-group">
                     <label for="exampleFormControlTextarea1">Data insertion</label>
-                    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3" ng-model="data"></textarea>
-                    <button class="btn btn-dark" ng-click="getData()">Stage</button>
+                    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"
+                        ng-model="textAreaData"></textarea>
+                    <button class="btn btn-dark" ng-click="stageTextAreaData('')">Stage</button>
                 </div>
-                <table class="table table-striped table-dark" ng-show="inputData && inputData.length">
+                <div class="form-group">
+                    <label for="exampleFormControlTextarea2">Data insertion CC</label>
+                    <textarea class="form-control" id="exampleFormControlTextarea2" rows="3"
+                        ng-model="textAreaDataCc"></textarea>
+                    <button class="btn btn-dark" ng-click="stageTextAreaData('cc')">Stage</button>
+                </div>
+                <table class="table table-striped table-dark" ng-show="stagedData && stagedData.length">
                     <thead>
                         <tr>
                             <th scope="col">#</th>
@@ -54,7 +61,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr ng-repeat="n in inputData" ng-init="rowIndex=$index">
+                        <tr ng-repeat="n in stagedData" ng-init="rowIndex=$index">
                             <th scope="row">{{$index}}</th>
                             <td>{{n.date.day}}/{{n.date.month}}/{{n.date.year}}</td>
                             <td>{{n.desc}}</td>
@@ -62,29 +69,29 @@
                             <td>
                                 <div class="flex-container">
                                     <div class="dropdown flex-item">
-                                        <button type="button" ng-class="{'btn btn-danger dropdown-toggle': inputDataGroups[rowIndex] == 'Group', 
-                                        'btn btn-secondary dropdown-toggle': inputDataGroups[rowIndex] != 'Group'}"
+                                        <button type="button" ng-class="{'btn btn-danger dropdown-toggle': stagedDataGroups[rowIndex] == 'Group', 
+                                        'btn btn-secondary dropdown-toggle': stagedDataGroups[rowIndex] != 'Group'}"
                                             id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
-                                            {{inputDataGroups[rowIndex]}}
+                                            {{stagedDataGroups[rowIndex]}}
                                         </button>
                                         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                             <a ng-repeat="i in groupList" ng-init="groupindex=$index"
                                                 class="dropdown-item" id="{{rowIndex}}-group-{{groupindex}}"
-                                                ng-click="filterCat($event)">{{i}}</a>
+                                                ng-click="filterCategoryBySelectedGroup($event)">{{i}}</a>
                                         </div>
                                     </div>
                                     <div class="dropdown flex-item">
                                         <button type="button" ng-class="{'btn btn-danger dropdown-toggle': n.cat == 'Category', 
                                             'btn btn-secondary dropdown-toggle': n.cat != 'Category'}"
-                                            ng-disabled="inputDataGroups[rowIndex] == 'Group'" id="dropdownMenuButton"
+                                            ng-disabled="stagedDataGroups[rowIndex] == 'Group'" id="dropdownMenuButton"
                                             data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                             {{n.cat}}
                                         </button>
                                         <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                            <a ng-repeat="i in filteredCat[rowIndex]" ng-init="catindex=$index"
+                                            <a ng-repeat="i in stagedDataCategories[rowIndex]" ng-init="catindex=$index"
                                                 class="dropdown-item" id="{{rowIndex}}-cat-{{catindex}}"
-                                                ng-click="setCat($event)">{{i.name}}</a>
+                                                ng-click="setStagedDataCategory($event)">{{i.category}}</a>
                                         </div>
                                     </div>
                                 </div>
@@ -94,18 +101,18 @@
                 </table>
                 <div>
                     <button class="btn btn-success" ng-click="insertData()"
-                        ng-show="inputData && inputData.length">Insert</button>
+                        ng-show="stagedData && stagedData.length">Insert</button>
                     <ul class="list-group">
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             Errors
-                            <span class="badge badge-primary badge-pill">{{insertLog.errors.length}}</span>
+                            <span class="badge badge-primary badge-pill">{{insertionLog.errors.length}}</span>
                         </li>
-                        <p ng-show="insertLog.errors.length">{{insertLog.errors}}</p>
+                        <p ng-show="insertionLog.errors.length">{{insertionLog.errors}}</p>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             Inserts
-                            <span class="badge badge-primary badge-pill">{{insertLog.inserts.length}}</span>
+                            <span class="badge badge-primary badge-pill">{{insertionLog.inserts.length}}</span>
                         </li>
-                        <p ng-show="insertLog.inserts.length">{{insertLog.inserts}}</p>
+                        <p ng-show="insertionLog.inserts.length">{{insertionLog.inserts}}</p>
                     </ul>
 
                 </div>
@@ -186,30 +193,36 @@
                             <th>Month</th>
                             <th ng-repeat="n in months | limitTo: (1 - months.length)">{{n}}</th>
                         </tr>
-
                     </thead>
                     <tbody>
                         <tr>
                             <td>{{yearTotalDebit}} €</td>
                             <th scope="col">Monthly Totals</th>
                             <td ng-repeat="n in months | limitTo: (1 - months.length)" ng-init="monIndex=$index">
-                                {{monthTotalDebit[$index]}} €</td>
+                                {{sumCreditDebitMonth[$index]}} €</td>
                         </tr>
-                        <tr ng-repeat-start="n in groupCat">
-                            <td></td>
-                            <th>{{n[0].group}}</th>
+                        <tr>
+                            <th class="table-light" colspan="100%"></th>
+                        </tr>
+                        <tr ng-repeat-start="n in categoriesGroupedbyGroup">
+                            <th colspan="2">{{n[0].group}}</th>
+                            <th ng-repeat="n in months | limitTo: (1 - months.length)">{{n}}</th>
                         </tr>
                         <tr ng-repeat="i in n">
                             <td></td>
-                            <td>{{i.name}}</td>
+                            <td>{{i.category}}</td>
                             <td ng-repeat="m in months | limitTo: (1 - months.length)" ng-init="monIndex=$index">
-                                {{totalMonth(monIndex, i.name, "cat")}}</td>
+                                {{totalMonth(monIndex, i.category, "cat")}}</td>
                         </tr>
-                        <tr ng-repeat-end class="special-row">
+
+                        <tr class="special-row">
                             <td>{{totalYear("group",n[0].group)}} €</td>
                             <td>TOTAL</td>
                             <td ng-repeat="month in months | limitTo: (1 - months.length)">
                                 {{totalMonth($index, n[0].group, "group")}} €</td>
+                        </tr>
+                        <tr ng-repeat-end>
+                            <th class="table-light" colspan="100%"></th>
                         </tr>
 
                     </tbody>
@@ -217,7 +230,10 @@
 
             </div>
 
-            <div class="tab-pane fade" id="nav-investments" role="tabpanel" aria-labelledby="nav-investments-tab">..3.
+            <div class="tab-pane fade" id="nav-investments" role="tabpanel" aria-labelledby="nav-investments-tab">
+                <p>
+
+                </p>
             </div>
             <div class="tab-pane fade" id="nav-stats" role="tabpanel" aria-labelledby="nav-stats-tab">..3.</div>
         </div>

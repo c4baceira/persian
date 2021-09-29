@@ -10,7 +10,7 @@
 </head>
 
 <body>
-   <div ng-app="danicab" ng-controller="MainController" ng-init="loadAccounts()">
+   <div ng-app="danicab" ng-controller="MainController" ng-init="loadInitialData()">
 
       <h3>Persian</h3>
       <!-- <a href="{{link}}" target="_blank">hello world!</a>{{ counter }}
@@ -20,14 +20,14 @@
       <div class="row">
          <div class="col-4">
             <div class="list-group" id="list-tab" role="tablist">
-               <a ng-repeat="n in accountsList" class="list-group-item list-group-item-action" id="{{$index}}"
+               <a ng-repeat="n in accountsList.accounts" class="list-group-item list-group-item-action" id="{{$index}}"
                   data-toggle="list" href="#account-{{$index}}" role="tab" aria-controls="home"
-                  ng-click="selectAccount($event)">{{n.name}}</a>
+                  ng-click="selectAccountEvent($event)">{{n.name}}</a>
             </div>
          </div>
          <div class="col-8">
             <div class="tab-content" id="nav-tabContent">
-               <div ng-repeat="n in accountsList" class="tab-pane fade " id="account-{{$index}}" role="tabpanel"
+               <div ng-repeat="n in accountsList.accounts" class="tab-pane fade " id="account-{{$index}}" role="tabpanel"
                   aria-labelledby="list-home-list">{{n.balance}} €
                </div>
             </div>
